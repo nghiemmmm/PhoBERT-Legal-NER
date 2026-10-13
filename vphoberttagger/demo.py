@@ -13,15 +13,26 @@ def load_models(model_path, no_cuda):
     return tagger
 def process_text(doc, expected_tag):
     tokens = []
+    color_map = {
+        'CQ': '#d8f2fe',    # Cơ quan
+        'ĐT': '#fef6ce',    # Đối tượng
+        'VBPL': '#f4cfdb',  # Văn bản pháp luật
+        'NG': '#edfcd9',    # Ngày tháng
+        'SL': '#ffe2cc',    # Số lượng
+        'PERSON': '#fef6ce',
+        'PER': '#fef6ce',
+        'ORGANIZATION': '#d8f2fe',
+        'ORG': '#d8f2fe',
+        'LOCATION': '#f4cfdb',
+        'LOC': '#f4cfdb',
+        'MISCELLANEOUS': '#edfcd9',
+        'MISC': '#edfcd9',
+    }
     for token in doc:
-        if token[-1] in expected_tag and token[-1] in ["PER", "PERSON"]:
-            tokens.append((token[0], "PERSON", "#fef6ce"))
-        elif token[-1] in expected_tag and token[-1] in ["ORG", "ORGANIZATION"]:
-            tokens.append((token[0], "ORGANIZATION", "#d8f2fe"))
-        elif token[-1] in expected_tag and token[-1] in ["LOC", "LOCATION"]:
-            tokens.append((token[0], "LOCATION", "#f4cfdb"))
-        elif token[-1] in expected_tag and token[-1] in ["MISC", "MISCELLANEOUS"]:
-            tokens.append((token[0], "MISCELLANEOUS", "#edfcd9"))
+        tag = token[-1]
+        if tag in expected_tag and tag != 'O':
+            color = color_map.get(tag, "#e0e0e0")
+            tokens.append((token[0], tag, color))
         else:
             tokens.append(" " + token[0] + " ")
     return tokens

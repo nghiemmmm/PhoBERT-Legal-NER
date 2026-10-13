@@ -19,6 +19,7 @@ LABEL2ID_PAP_NER = [
 PROCESSOR_MAPPING = {
     'vinai/phobert-base': convert_word_segment_examples_features,
     'vinai/phobert-large': convert_word_segment_examples_features,
+    'trungbb8/distilphobert': convert_word_segment_examples_features,
 }
 
 MODEL_MAPPING = {
@@ -26,6 +27,9 @@ MODEL_MAPPING = {
         'crf': PhoBertCrf,
     },
     'vinai/phobert-large': {
+        'crf': PhoBertCrf,
+    },
+    'trungbb8/distilphobert': {
         'crf': PhoBertCrf,
     }
 }

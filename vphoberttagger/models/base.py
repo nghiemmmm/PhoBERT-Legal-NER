@@ -11,6 +11,13 @@ logging.set_verbosity_error()
 class NerOutput(OrderedDict):
     loss: Optional[torch.FloatTensor] = torch.FloatTensor([0.0])
     tags: Optional[List[int]] = []
+    loss_crf: Optional[torch.FloatTensor] = None
+    loss_supcon: Optional[torch.FloatTensor] = None
+
+    def __init__(self, *args, **kwargs):
+        super(NerOutput, self).__init__(*args, **kwargs)
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
     def __getitem__(self, k):
         if isinstance(k, str):

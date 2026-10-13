@@ -45,9 +45,19 @@ def get_train_argument():
     parser.add_argument("--load_weights", default=None, type=str,
                         help='Path of pretrained file.')
     parser.add_argument("--model_name_or_path", default='vinai/phobert-base', type=str,
-                        help="Pre-trained model selected in the list: vinai/phobert-base, vinai/phobert-large...")
+                        help="Pre-trained model selected in the list: vinai/phobert-base, trungbb8/distilphobert, vinai/phobert-large...")
     parser.add_argument("--model_arch", default='crf', type=str, choices=['crf'],
                         help="Model architecture: PhoBERT + CRF for sequence tagging")
+    parser.add_argument("--use_supcon", action='store_true', default=False,
+                        help="Whether to enable Supervised Contrastive Loss (SupCon) for entity representations")
+    parser.add_argument("--lambda_supcon", default=0.3, type=float,
+                        help="Weight lambda for SupCon loss (default: 0.3)")
+    parser.add_argument("--supcon_temp", default=0.07, type=float,
+                        help="Temperature tau for SupCon loss (default: 0.07)")
+    parser.add_argument("--supcon_mode", default='exact', choices=['exact', 'hierarchical'], type=str,
+                        help="Matching strategy for SupCon loss: 'exact' (Exact BIO matching) or 'hierarchical' (Entity-type weighted matching).")
+    parser.add_argument("--supcon_alpha", default=0.3, type=float,
+                        help="Weak positive weight for same entity-type but different BIO prefix in hierarchical SupCon (default: 0.3).")
     parser.add_argument("--output_dir", default='outputs/', type=str,
                         help="The output directory where the model predictions and checkpoints will be written.")
     parser.add_argument("--max_seq_length", default=256, type=int,
@@ -81,9 +91,13 @@ def get_train_argument():
                         help="Whether not to use CUDA when available")
     parser.add_argument('--seed', type=int, default=42,
                         help="random seed for initialization")
-    parser.add_argument('--num_workers', type=int, default=0,
+    parser.add_argument('--num_workers', type=int, default=2,
                         help="How many subprocesses to use for data loading. 0 means that the data will be loaded "
                              "in the main process.")
+    parser.add_argument("--fp16", action='store_true', default=True,
+                        help="Whether to use 16-bit (mixed) precision (through torch.cuda.amp)")
+    parser.add_argument("--no_fp16", dest='fp16', action='store_false',
+                        help="Disable 16-bit (mixed) precision")
     parser.add_argument('--save_step', type=int, default=20000,
                         help="")
     parser.add_argument('--gradient_accumulation_steps', type=int, default=1,

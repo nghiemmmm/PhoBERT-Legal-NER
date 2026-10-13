@@ -69,6 +69,7 @@ capu/
 *.swp
 *.swo
 *~
+*.bak
 
 # --- Operating System Artifacts ---
 .DS_Store

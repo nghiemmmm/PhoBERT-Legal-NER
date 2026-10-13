@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 import random
@@ -5,6 +6,20 @@ import logging
 
 import torch
 import numpy as np
+
+if hasattr(torch.serialization, 'add_safe_globals'):
+    try:
+        torch.serialization.add_safe_globals([argparse.Namespace])
+    except Exception:
+        pass
+
+
+def safe_torch_load(f, map_location=None, **kwargs):
+    """Safely loads torch files supporting PyTorch 2.6+ where weights_only defaults to True."""
+    try:
+        return torch.load(f, map_location=map_location, weights_only=False, **kwargs)
+    except TypeError:
+        return torch.load(f, map_location=map_location, **kwargs)
 
 
 def set_ramdom_seed(seed: int):
@@ -23,13 +38,16 @@ def init_logger(log_file=None, log_file_level=logging.NOTSET):
     logger.handlers = [console_handler]
 
     if log_file and log_file != '':
-        if not os.path.isdir('./logs'):
-            os.makedirs('./logs')
-        log_file = os.path.join('./logs/', log_file)
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setLevel(log_file_level)
-        file_handler.setFormatter(log_format)
-        logger.addHandler(file_handler)
+        try:
+            if not os.path.isdir('./logs'):
+                os.makedirs('./logs', exist_ok=True)
+            log_path = os.path.join('./logs', log_file)
+            file_handler = logging.FileHandler(log_path)
+            file_handler.setLevel(log_file_level)
+            file_handler.setFormatter(log_format)
+            logger.addHandler(file_handler)
+        except Exception as e:
+            logger.warning(f"Notice: Could not write log file ({e}), logging to console only.")
     return logger
 
 
@@ -114,40 +132,32 @@ def plot_confusion_matrix(y_true, y_pred, classes, labels,
     # Only use the labels that appear in the data
 
     if normalize:
-        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        row_sums = cm.sum(axis=1)[:, np.newaxis]
+        cm = np.divide(cm.astype('float'), row_sums, out=np.zeros_like(cm, dtype=float), where=row_sums != 0)
         print("Normalized confusion matrix")
     else:
          print('Confusion matrix, without normalization')
 
-    # plt.rcParams['savefig.dpi'] = 200
-    # plt.rcParams['figure.dpi'] = 200
     plt.rcParams['figure.figsize'] = [10, 10]
     plt.rcParams.update({'font.size': 16})
 
     fig, ax = plt.subplots()
     im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
 
-    # --- bar 크기 조절 --- #
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
-    # --- bar 크기 조절 --- #
-    # ax.figure.colorbar(im, ax=ax)
 
-    # We want to show all ticks...
     ax.set(xticks=np.arange(cm.shape[1]),
            yticks=np.arange(cm.shape[0]),
-           # ... and label them with the respective list entries
            xticklabels=classes, yticklabels=classes,
            title=title,
            ylabel='True label',
            xlabel='Predicted label')
 
-    # Rotate the tick labels and set their alignment.
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
-    # Loop over data dimensions and create text annotations.
     fmt = '.2f' if normalize else 'd'
     thresh = cm.max() / 2.
     for i in range(cm.shape[0]):
@@ -156,5 +166,7 @@ def plot_confusion_matrix(y_true, y_pred, classes, labels,
                     ha="center", va="center",
                     color="white" if cm[i, j] > thresh else "black")
     fig.tight_layout()
+    os.makedirs(output_dir, exist_ok=True)
     plt.savefig(os.path.join(output_dir, 'confusion_matrix.png'))
+    plt.close(fig)
     return ax

@@ -1,7 +1,7 @@
 from vphoberttagger.arguments import get_predict_argument
 from vphoberttagger.constant import LABEL_MAPPING, MODEL_MAPPING
 from vphoberttagger.models import PhoBertCrf
-from vphoberttagger.helper import normalize_text
+from vphoberttagger.helper import normalize_text, safe_torch_load
 from vncorenlp import VnCoreNLP
 
 from typing import Union
@@ -26,17 +26,19 @@ class ViTagger(object):
     @staticmethod
     def load_model(model_path: Union[str or os.PathLike],  device='cpu'):
         if device == 'cpu':
-            checkpoint_data = torch.load(model_path, map_location='cpu')
+            checkpoint_data = safe_torch_load(model_path, map_location='cpu')
         else:
-            checkpoint_data = torch.load(model_path)
+            checkpoint_data = safe_torch_load(model_path)
         args = checkpoint_data["args"]
         max_seq_len = args.max_seq_length
         use_crf = True
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=False)
         config = AutoConfig.from_pretrained(args.model_name_or_path, num_labels=len(args.label2id))
+        use_supcon = getattr(args, 'use_supcon', False)
+        setattr(config, 'use_supcon', use_supcon)
         model_clss = PhoBertCrf
         model = model_clss(config=config)
-        model.load_state_dict(checkpoint_data['model'])
+        model.load_state_dict(checkpoint_data['model'], strict=False)
         model.to(device)
         model.eval()
 
@@ -57,7 +59,8 @@ class ViTagger(object):
                                   truncation=True,
                                   is_split_into_words=True,
                                   max_length=self.max_seq_len)
-        if 'vinai/phobert' in self.tokenizer.name_or_path:
+        is_phobert = ('phobert' in str(self.tokenizer.name_or_path).lower()) or ('Phobert' in self.tokenizer.__class__.__name__)
+        if is_phobert:
             subwords = self.tokenizer.tokenize(' '.join(tokens))
             valid_ids = np.zeros(len(encoding.input_ids), dtype=int)
             label_marks = np.zeros(len(encoding.input_ids), dtype=int)
@@ -87,10 +90,10 @@ class ViTagger(object):
         else:
             label_marks[:-2] = [1] * (self.max_seq_len - 2)
         if self.use_crf and label_marks[0] == 0:
-            raise f"{tokens} have mark == 0 at index 0!"
+            raise ValueError(f"{tokens} have mark == 0 at index 0!")
         item = {key: torch.as_tensor([val]).to(self.device, dtype=torch.long) for key, val in encoding.items()}
         item['valid_ids'] = torch.as_tensor([valid_ids]).to(self.device, dtype=torch.long)
-        item['label_masks'] = torch.as_tensor([valid_ids]).to(self.device, dtype=torch.long)
+        item['label_masks'] = torch.as_tensor([label_marks if self.use_crf else valid_ids]).to(self.device, dtype=torch.long)
         return item
 
     def extract_entity_doc(self, in_raw: str):

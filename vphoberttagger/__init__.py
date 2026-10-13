@@ -4,7 +4,10 @@ __author__ = ''
 from .constant import LOGGER
 
 import vphoberttagger.trainer as Trainer
-import vphoberttagger.predictor as Predictor
+try:
+    import vphoberttagger.predictor as Predictor
+except Exception:
+    Predictor = None
 
 
 __all__ = ['Trainer', 'Predictor', 'LOGGER']
